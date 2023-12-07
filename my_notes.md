@@ -27,3 +27,5 @@ dataset provided by Novartis<sup>[6]</sup>, used as external testset
 
 
 combining didn't work as intended. maybe just tired. check with merging the csv files into excel?
+No, I redid the cleaning with different cutoffs and will then combine with read sdf, generate iso smiles and compare based on that to highlight duplicates
+alt check the combine mono duplicates script

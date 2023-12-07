@@ -3,50 +3,57 @@ This script prepares SDF files which can then be used for machine learning.
 This includes sanitizing, filtering molecules with bad functional groups and
 unwanted elements, removing salts, filtering by Lipinski's rule of five and
 unify different tautomers.
+
+
+Adapted to my preferences, e.g. Lipinsiki I basically want to ignore.
+
+
 """
 
 from argparse import ArgumentParser, Namespace
 from io import StringIO
-from subprocess import PIPE, Popen, DEVNULL, SubprocessError
-from typing import Optional, List
+from subprocess import DEVNULL, PIPE, Popen, SubprocessError
+from typing import List, Optional
 
 import numpy as np
 import pandas as pd
 from rdkit import Chem
-from rdkit.Chem import PandasTools, SaltRemover, Descriptors, Lipinski, Crippen, Mol
+from rdkit.Chem import Crippen, Descriptors, Lipinski, Mol, PandasTools, SaltRemover
 from rdkit.Chem.MolStandardize.standardize import TautomerCanonicalizer, Uncharger
 
-__author__ = 'Marcel Baltruschat'
-__copyright__ = 'Copyright © 2020-2023'
-__license__ = 'MIT'
-__version__ = '1.1.0'
+__author__ = "Marcel Baltruschat"
+__copyright__ = "Copyright © 2020-2023"
+__license__ = "MIT"
+__version__ = "1.1.0"
 
 # Selenium, Silicon and Bor
-BAD_ELEMENTS = ['Se', 'Si', 'B']
+BAD_ELEMENTS = ["Se", "Si", "B"]
 BAD_ELEM_QUERY = Chem.MolFromSmarts(f'[{",".join(BAD_ELEMENTS)}]')
 
 BFG = [
-    Chem.MolFromSmarts('[!#8][NX3+](=O)[O-]'),  # "Classical" nitro group
-    Chem.MolFromSmarts('[$([NX3+]([O-])O),$([NX3+]([O-])[O-])]=[!#8]'),  # Nitro group in tautomer form
+    Chem.MolFromSmarts("[!#8][NX3+](=O)[O-]"),  # "Classical" nitro group
+    Chem.MolFromSmarts(
+        "[$([NX3+]([O-])O),$([NX3+]([O-])[O-])]=[!#8]"
+    ),  # Nitro group in tautomer form
 ]
 
 ADDITIONAL_SALTS = [
-    Chem.MolFromSmarts('[H+]'),
-    Chem.MolFromSmarts('[I,N][I,N]'),
-    Chem.MolFromSmarts('[Cs+]'),
-    Chem.MolFromSmarts('F[As,Sb,P](F)(F)(F)(F)F'),
-    Chem.MolFromSmarts('[O-,OH][Cl+3]([O-,OH])([O-,OH])[O-,OH]')
+    Chem.MolFromSmarts("[H+]"),
+    Chem.MolFromSmarts("[I,N][I,N]"),
+    Chem.MolFromSmarts("[Cs+]"),
+    Chem.MolFromSmarts("F[As,Sb,P](F)(F)(F)(F)F"),
+    Chem.MolFromSmarts("[O-,OH][Cl+3]([O-,OH])([O-,OH])[O-,OH]"),
 ]
 
-PKA_LOWER_CUT = 2
-PKA_UPPER_CUT = 12
+PKA_LOWER_CUT = 1
+PKA_UPPER_CUT = 14
 MARVIN_LOG_CUT = 4
 
 LIPINSKI_RULES = [
-    (Descriptors.MolWt, 500),
-    (Lipinski.NumHDonors, 5),
-    (Lipinski.NumHAcceptors, 10),
-    (Crippen.MolLogP, 5),
+    (Descriptors.MolWt, 750),
+    (Lipinski.NumHDonors, 10),
+    (Lipinski.NumHAcceptors, 20),
+    (Crippen.MolLogP, 7),
 ]
 
 
@@ -110,10 +117,16 @@ def parse_args() -> Namespace:
     """
 
     parser = ArgumentParser()
-    parser.add_argument('infile', metavar='INFILE')
-    parser.add_argument('outfile', metavar='OUTFILE')
-    parser.add_argument('--keep-props', '-kp', metavar='PROP1,PROP2,...', default=[], type=lambda x: x.split(','))
-    parser.add_argument('--no-openeye', '-noe', action='store_true')
+    parser.add_argument("infile", metavar="INFILE")
+    parser.add_argument("outfile", metavar="OUTFILE")
+    parser.add_argument(
+        "--keep-props",
+        "-kp",
+        metavar="PROP1,PROP2,...",
+        default=[],
+        type=lambda x: x.split(","),
+    )
+    parser.add_argument("--no-openeye", "-noe", action="store_true")
     return parser.parse_args()
 
 
@@ -177,18 +190,18 @@ def cleaning(df: pd.DataFrame, keep_props: List[str]) -> pd.DataFrame:
         Cleaned DataFrame
     """
 
-    df = df.loc[:, ['ROMol'] + keep_props]
+    df = df.loc[:, ["ROMol"] + keep_props]
 
     salt_rm = SaltRemover.SaltRemover()
     salt_rm.salts.extend(ADDITIONAL_SALTS)
     df.ROMol = df.ROMol.apply(salt_rm.StripMol)
-    df.dropna(subset=['ROMol'], inplace=True)
+    df.dropna(subset=["ROMol"], inplace=True)
 
     df.ROMol = df.ROMol.apply(check_on_remaining_salts)
-    df.dropna(subset=['ROMol'], inplace=True)
+    df.dropna(subset=["ROMol"], inplace=True)
 
     df.ROMol = df.ROMol.apply(check_sanitization)
-    df.dropna(subset=['ROMol'], inplace=True)
+    df.dropna(subset=["ROMol"], inplace=True)
 
     return df
 
@@ -227,8 +240,8 @@ def filtering(df: pd.DataFrame) -> pd.DataFrame:
             if func(row.ROMol) > thres:
                 del_ix.append(ix)
                 break
-    print(f'Dropped {lip} mols because of more than one Lipinski rule violation')
-    print(f'Dropped {len(del_ix) - lip} mols through additional filtering')
+    print(f"Dropped {lip} mols because of more than one Lipinski rule violation")
+    print(f"Dropped {len(del_ix) - lip} mols through additional filtering")
     return df.drop(index=del_ix)
 
 
@@ -281,11 +294,11 @@ def run_external(args: List[str], df: pd.DataFrame) -> str:
         If the called program exits with a non-zero exit code
     """
 
-    with mols_to_sdbuffer(df.reset_index(), ['ID']) as buffer:
+    with mols_to_sdbuffer(df.reset_index(), ["ID"]) as buffer:
         p = Popen(args, text=True, stdin=PIPE, stdout=PIPE, stderr=DEVNULL)
         stdout, _ = p.communicate(buffer.getvalue())
     if p.returncode != 0:
-        raise SubprocessError(f'{args[0]} ended with non-zero exit code {p.returncode}')
+        raise SubprocessError(f"{args[0]} ended with non-zero exit code {p.returncode}")
     return stdout
 
 
@@ -305,37 +318,50 @@ def run_marvin_pka(df: pd.DataFrame) -> pd.DataFrame:
         Filtered DataFrame containing only monoprotic structures
     """
 
-    cmd_call = ['cxcalc', '--id', 'ID', 'pka', '-i', str(PKA_LOWER_CUT), '-x', str(PKA_UPPER_CUT), '-T', '298.15']
-    res_df = pd.read_csv(StringIO(run_external(cmd_call, df)), sep='\t').set_index('ID', verify_integrity=True)
+    cmd_call = [
+        "cxcalc",
+        "--id",
+        "ID",
+        "pka",
+        "-i",
+        str(PKA_LOWER_CUT),
+        "-x",
+        str(PKA_UPPER_CUT),
+        "-T",
+        "298.15",
+    ]
+    res_df = pd.read_csv(StringIO(run_external(cmd_call, df)), sep="\t").set_index(
+        "ID", verify_integrity=True
+    )
     res_df.index = res_df.index.astype(str)
     df = df.merge(res_df, right_index=True, left_index=True)
     for ix in df.index:
         try:
-            if np.isnan(df.loc[ix, 'atoms']):
+            if np.isnan(df.loc[ix, "atoms"]):
                 continue
         except TypeError:
             pass
         ci = 0
-        for col in ['apKa1', 'apKa2', 'bpKa1', 'bpKa2']:
+        for col in ["apKa1", "apKa2", "bpKa1", "bpKa2"]:
             val = df.loc[ix, col]
             if np.isnan(val):
                 continue
             if val < PKA_LOWER_CUT or val > PKA_UPPER_CUT:
                 df.loc[ix, col] = np.nan
-                atoms = df.loc[ix, 'atoms'].split(',')
+                atoms = df.loc[ix, "atoms"].split(",")
                 if len(atoms) == 1:
-                    df.loc[ix, 'atoms'] = np.nan
+                    df.loc[ix, "atoms"] = np.nan
                 else:
                     del atoms[ci]
-                    df.loc[ix, 'atoms'] = ','.join(atoms)
+                    df.loc[ix, "atoms"] = ",".join(atoms)
                     ci -= 1
             ci += 1
-    df.atoms = pd.to_numeric(df.atoms, errors='coerce')
-    df.dropna(subset=['atoms'], inplace=True)
+    df.atoms = pd.to_numeric(df.atoms, errors="coerce")
+    df.dropna(subset=["atoms"], inplace=True)
     df.atoms = df.atoms.astype(int, copy=False).apply(lambda x: x - 1)
-    df['pKa_type'] = df.apKa1.apply(lambda x: 'basic' if np.isnan(x) else 'acidic')
-    df.apKa1 = df[['apKa1', 'bpKa1']].sum(axis=1)
-    df.drop(columns=['bpKa1', 'apKa2', 'bpKa2'], inplace=True)  # 'count'
+    df["pKa_type"] = df.apKa1.apply(lambda x: "basic" if np.isnan(x) else "acidic")
+    df.apKa1 = df[["apKa1", "bpKa1"]].sum(axis=1)
+    df.drop(columns=["bpKa1", "apKa2", "bpKa2"], inplace=True)  # 'count'
     return df
 
 
@@ -354,14 +380,16 @@ def run_oe_tautomers(df: pd.DataFrame) -> pd.DataFrame:
         DataFrame with tautomer canonized structures
     """
 
-    cmd_call = ['tautomers', '-maxtoreturn', '1', '-in', '.sdf', '-warts', 'false']
+    cmd_call = ["tautomers", "-maxtoreturn", "1", "-in", ".sdf", "-warts", "false"]
     mols, ix = [], []
-    for mol in Chem.SmilesMolSupplierFromText(run_external(cmd_call, df), titleLine=False):
+    for mol in Chem.SmilesMolSupplierFromText(
+        run_external(cmd_call, df), titleLine=False
+    ):
         mols.append(mol)
-        ix.append(mol.GetProp('_Name'))
+        ix.append(mol.GetProp("_Name"))
     ixs = set(ix)
     if len(ix) != len(ixs):
-        print('WARNING: Duplicates in tautomers result')
+        print("WARNING: Duplicates in tautomers result")
     dropped = df.index.difference(ixs)
     df.drop(index=dropped, inplace=True)
     df.ROMol = mols
@@ -385,8 +413,11 @@ def run_molvs_tautomers(df: pd.DataFrame) -> pd.DataFrame:
     uc = Uncharger()
     tc = TautomerCanonicalizer(max_tautomers=1000)  # Default is 1000
     for ix in df.index:
-        df.loc[ix, 'ROMol'] = check_sanitization(tc.canonicalize(uc.uncharge(df.loc[ix, 'ROMol'])))
-    df.dropna(subset=['ROMol'], inplace=True)
+        # print(ix)
+        df.loc[ix, "ROMol"] = check_sanitization(
+            tc.canonicalize(uc.uncharge(df.loc[ix, "ROMol"]))
+        )
+    df.dropna(subset=["ROMol"], inplace=True)
     return df
 
 
@@ -425,34 +456,42 @@ def main(args: Namespace) -> None:
         Namespace object containing the parsed commandline arguments
     """
 
-    df = PandasTools.LoadSDF(args.infile).set_index('ID', verify_integrity=True)
-    print(f'Initial: {len(df)}')
+    df = PandasTools.LoadSDF(args.infile).set_index("ID", verify_integrity=True)
+    print(df.head())
+    print(f"Initial: {len(df)}")
+
+    df_keep = df.copy()
 
     df = cleaning(df, args.keep_props)
-    print(f'After cleaning: {len(df)}')
-
+    print(df.head())
+    print(f"After cleaning: {len(df)}")
     df = filtering(df)
-    print(f'After filtering: {len(df)}')
+    print(df.head())
+    print(f"After filtering: {len(df)}")
 
     if not args.no_openeye:
-        print('Using OpenEye QuacPac for tautomer and charge standardization...')
+        print("Using OpenEye QuacPac for tautomer and charge standardization...")
         df = run_oe_tautomers(df)
-        print(f'After QuacPac tautomers: {len(df)}')
+        print(f"After QuacPac tautomers: {len(df)}")
     else:
-        print('Using RDKit MolVS for tautomer and charge standardization...')
+        print("Using RDKit MolVS for tautomer and charge standardization...")
         df = run_molvs_tautomers(df)
-        print(f'After MolVS: {len(df)}')
+        print(f"After MolVS: {len(df)}")
 
-    df = run_marvin_pka(df)
-    print(f'After Marvin pKa: {len(df)}')
+    df = df_keep.loc[df.index.intersection(df.index)]
+    print(df.head())
+    print(f"After intersection: {len(df)}")
 
-    df = filter_strong_outlier_by_marvin(df)
-    print(f'After removing strong outlier: {len(df)}')
+    # df = run_marvin_pka(df)
+    # print(f'After Marvin pKa: {len(df)}')
 
-    df.columns = ['ROMol'] + args.keep_props + ['marvin_pKa', 'marvin_atom', 'marvin_pKa_type']
+    # df = filter_strong_outlier_by_marvin(df)
+    # print(f'After removing strong outlier: {len(df)}')
 
-    PandasTools.WriteSDF(df, args.outfile, idName='RowID', properties=df.columns)
+    # df.columns = ['ROMol'] + args.keep_props + ['marvin_pKa', 'marvin_atom', 'marvin_pKa_type']
+
+    PandasTools.WriteSDF(df, args.outfile, idName="RowID", properties=df.columns)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(parse_args())

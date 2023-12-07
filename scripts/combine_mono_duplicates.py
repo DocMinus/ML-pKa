@@ -9,13 +9,13 @@ import numpy as np
 import pandas as pd
 from rdkit.Chem import PandasTools
 
-__author__ = 'Marcel Baltruschat'
-__copyright__ = 'Copyright © 2020'
-__license__ = 'MIT'
-__version__ = '1.0.0'
+__author__ = "Marcel Baltruschat"
+__copyright__ = "Copyright © 2020"
+__license__ = "MIT"
+__version__ = "1.0.0"
 
-PKA_LOWER_CUT = 2
-PKA_UPPER_CUT = 12
+PKA_LOWER_CUT = 1
+PKA_UPPER_CUT = 14
 
 
 def mean_except_outliers(var: pd.Series, m: int = 2) -> Optional[float]:
@@ -53,18 +53,20 @@ def mean_except_outliers(var: pd.Series, m: int = 2) -> Optional[float]:
     return res
 
 
-df = PandasTools.LoadSDF(argv[1], isomericSmiles=True, smilesName='ISO_SMILES')
+df = PandasTools.LoadSDF(argv[1], isomericSmiles=True, smilesName="ISO_SMILES")
 df.pKa = pd.to_numeric(df.pKa)
-print(f'Initial: {len(df)}')
+print(f"Initial: {len(df)}")
 
-grp = df.groupby('ISO_SMILES')
+grp = df.groupby("ISO_SMILES")
 df2 = grp.first()
 df2.pKa = grp.pKa.agg(mean_except_outliers)
 try:
     df2.original_dataset = grp.original_dataset.agg(lambda x: list(set(x)))
 except AttributeError:
     pass
-df2.dropna(subset=['pKa'], inplace=True)
+df2.dropna(subset=["pKa"], inplace=True)
 
-print(f'Unique: {len(df2)}')
-PandasTools.WriteSDF(df2, argv[1].replace('.sdf', '_unique.sdf'), properties=df2.columns)
+print(f"Unique: {len(df2)}")
+PandasTools.WriteSDF(
+    df2, argv[1].replace(".sdf", "_unique.sdf"), properties=df2.columns
+)
