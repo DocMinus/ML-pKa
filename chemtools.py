@@ -18,13 +18,13 @@ added a read A+B->C+D reactions function
 
 import re
 import time
+
 import pandas as pd
 
 # RDkit stuff
-from rdkit import Chem
+from rdkit import Chem, RDLogger
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.ML.Descriptors.MoleculeDescriptors import MolecularDescriptorCalculator
-from rdkit import RDLogger
 
 # Important, or else waaaay too many RDkit details in output
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
@@ -77,13 +77,13 @@ def read_smiles2pd(file_name: str, delimiter="auto", header=None) -> pd.DataFram
         with open(file_name) as file_in:
             first_line = file_in.readline()
         if re.compile("\t").findall(first_line):
-            #print("done, its a tab")
+            # print("done, its a tab")
             delimiter = "\t"
         elif re.compile(";").findall(first_line):
-            #print("nope, it's a ;")
+            # print("nope, it's a ;")
             delimiter = ";"
         elif re.compile(",").findall(first_line):
-            #print("ah no, its a ,")
+            # print("ah no, its a ,")
             delimiter = ","
         # in case none is detected, potentially only one column, choose tab arbitrarily
         if delimiter == "auto":
@@ -582,12 +582,12 @@ RDKIT_DESCRIPS = MolecularDescriptorCalculator(
         "Kappa3",
         "LabuteASA",
         "MaxAbsEStateIndex",
-        "MaxAbsPartialCharge",
-        "MaxPartialCharge",
+        #   "MaxAbsPartialCharge",
+        #   "MaxPartialCharge",
         "MinAbsEStateIndex",
-        "MinAbsPartialCharge",
+        #   "MinAbsPartialCharge",
         "MinEStateIndex",
-        "MinPartialCharge",
+        #   "MinPartialCharge",
         "PEOE_VSA1",
         "PEOE_VSA10",
         "PEOE_VSA11",

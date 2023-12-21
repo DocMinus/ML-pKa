@@ -16,3 +16,6 @@ Combined all datasets from paper, cleaned, removed duplicates (used mean for dup
 dataset provided by Novartis<sup>[6]</sup>
 <br>
 #TODO: make my own split for test/train and maybe even external, then do my own RF as previously
+maybe add my own descriptors from TDs ?
+
+still not better. what the ...
