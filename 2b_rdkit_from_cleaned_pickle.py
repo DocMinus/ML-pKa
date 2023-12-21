@@ -19,7 +19,11 @@ from tqdm import tqdm
 
 RDLogger.logger().setLevel(RDLogger.CRITICAL)
 
-from chemtools import RDKIT_DESCRIPS, RDKIT_DESCRIPS_HEADERS, RDKIT_MQN_HEADERS
+from mymodules.chemtools import (
+    RDKIT_DESCRIPS,
+    RDKIT_DESCRIPS_HEADERS,
+    RDKIT_MQN_HEADERS,
+)
 
 sys.path.insert(1, os.path.join(expanduser("~"), "dev/chemistry/"))
 
