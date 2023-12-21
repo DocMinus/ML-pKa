@@ -6,3 +6,7 @@
 **/.vscode
 
 *.tmp
+
+*_TDs.sdf
+*_TDs.pkl
+*_TDs.tsv
